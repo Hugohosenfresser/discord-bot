@@ -17,6 +17,8 @@ A basic Discord bot written in Python using the discord.py library.
 - `!info` - Display bot information
 - `!say <message>` - Make the bot repeat a message
 - `!userinfo [@user]` - Get detailed information about a user including roles and timestamps (defaults to command author)
+- `!doakes` - Get a random Sergeant Doakes GIF from Dexter TV series
+- `!delete <amount> [@user]` - Delete messages (requires Manage Messages permission)
 - `!help` - Show all available commands (built-in)
 
 ## Setup Instructions
