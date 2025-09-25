@@ -1,7 +1,19 @@
 import os
+import sys
+import logging
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+
+# Configure logging for Railway
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,12 +32,13 @@ bot = commands.Bot(command_prefix=PREFIX, intents=intents)
 @bot.event
 async def on_ready():
     """Event triggered when the bot is ready and connected to Discord"""
-    print(f'{bot.user} has connected to Discord!')
-    print(f'Bot is in {len(bot.guilds)} guilds')
+    logger.info(f'{bot.user} has connected to Discord!')
+    logger.info(f'Bot is in {len(bot.guilds)} guilds')
     
     # Set bot status
     activity = discord.Activity(type=discord.ActivityType.watching, name="for commands")
     await bot.change_presence(activity=activity)
+    logger.info('Bot status set and ready to receive commands')
 
 @bot.event
 async def on_message(message):
@@ -34,8 +47,8 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
-    # Log messages (optional - remove in production if not needed)
-    print(f'Message from {message.author}: {message.content}')
+    # Log messages for debugging (Railway-friendly)
+    logger.debug(f'Message from {message.author}: {message.content[:50]}...')
     
     # Process commands
     await bot.process_commands(message)
@@ -102,19 +115,25 @@ async def on_command_error(ctx, error):
     elif isinstance(error, commands.BadArgument):
         await ctx.send("❌ Invalid argument provided. Check the command usage with `!help <command>`")
     else:
-        print(f'An error occurred: {error}')
+        logger.error(f'Unexpected error in command {ctx.command}: {error}')
         await ctx.send("❌ An unexpected error occurred.")
 
 # Run the bot
 if __name__ == '__main__':
     if TOKEN is None:
-        print("Error: DISCORD_TOKEN not found in environment variables.")
-        print("Please create a .env file with your bot token.")
-        exit(1)
+        logger.error("DISCORD_TOKEN not found in environment variables.")
+        logger.error("Please set your bot token in Railway environment variables.")
+        sys.exit(1)
     
     try:
+        logger.info("Starting Discord bot...")
         bot.run(TOKEN)
     except discord.LoginFailure:
-        print("Error: Invalid bot token. Please check your DISCORD_TOKEN in the .env file.")
+        logger.error("Invalid bot token. Please check your DISCORD_TOKEN environment variable.")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        logger.info("Bot shutdown requested by user.")
+        sys.exit(0)
     except Exception as e:
-        print(f"Error starting bot: {e}")
+        logger.error(f"Critical error starting bot: {e}")
+        sys.exit(1)

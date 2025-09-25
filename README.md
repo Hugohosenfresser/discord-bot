@@ -79,6 +79,51 @@ python bot.py
 
 You should see a message indicating the bot has connected to Discord successfully.
 
+## Railway Deployment (Recommended for 24/7 hosting)
+
+This bot is ready for deployment on [Railway](https://railway.app), a modern hosting platform perfect for Discord bots.
+
+### Quick Deploy to Railway
+
+1. **Fork this repository** or use your own copy
+
+2. **Sign up for Railway** at [railway.app](https://railway.app)
+
+3. **Create a new project**:
+   - Click "New Project"
+   - Select "Deploy from GitHub repo"
+   - Choose this repository
+
+4. **Set environment variables** in Railway dashboard:
+   - Go to your project settings
+   - Click "Variables" tab
+   - Add `DISCORD_TOKEN` with your bot token value
+   - Optionally add `COMMAND_PREFIX` (defaults to `!`)
+
+5. **Deploy**: Railway will automatically build and deploy your bot!
+
+### Railway Features Used
+
+- **Procfile**: Specifies how to run the bot (`web: python bot.py`)
+- **railway.json**: Configuration for build and deployment settings
+- **Automatic restarts**: Bot will restart automatically if it crashes
+- **Logging**: All bot activity is logged and viewable in Railway dashboard
+- **Environment variables**: Secure token storage
+
+### Railway Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|-----------|
+| `DISCORD_TOKEN` | Your Discord bot token | ✅ Yes |
+| `COMMAND_PREFIX` | Command prefix (default: `!`) | ❌ Optional |
+
+### Monitoring Your Bot on Railway
+
+- **Logs**: View real-time logs in the Railway dashboard
+- **Metrics**: Monitor CPU, memory, and network usage
+- **Deployments**: Track deployment history and rollback if needed
+- **Settings**: Modify environment variables and deployment settings
+
 ## Project Structure
 
 ```
@@ -88,6 +133,8 @@ discord-bot/
 ├── .env.example       # Environment variables template
 ├── .env              # Your actual environment variables (not in git)
 ├── .gitignore        # Git ignore file
+├── Procfile          # Railway deployment configuration
+├── railway.json      # Railway build and deploy settings
 └── README.md         # This file
 ```
 
