@@ -187,8 +187,8 @@ async def doakes(ctx):
     
     # List of Doakes GIFs from Dexter
     doakes_gifs = [
-        "https://images-ext-1.discordapp.net/external/W0HpZimDJ0l-tY2lClrLVP_CM1aYOWst0YoCzE10iU4/https/media.tenor.com/q8o8tyY9_HsAAAPo/watching-you.mp4",
-        "https://tenor.com/view/james-doakes-doakes-curious-suspicious-questioning-gif-14390669560130901665",
+        "https://c.tenor.com/EqPfcX1wzHoAAAAd/tenor.gif",
+        "https://c.tenor.com/x7XtuEuhFqEAAAAd/tenor.gif",
         "https://tenor.com/view/doakes-bar-gif-4298875606784040546",
         "https://tenor.com/view/dexter-doakes-squint-stare-suspicious-gif-14432154109786838518",
         "https://tenor.com/view/doakes-dexter-dexter-doakes-gotcha-found-you-gif-14688017774431904057",
