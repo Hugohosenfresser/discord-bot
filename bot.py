@@ -187,26 +187,19 @@ async def doakes(ctx):
     
     # List of Doakes GIFs from Dexter
     doakes_gifs = [
-        "https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif",
-        "https://media.giphy.com/media/xT5LMHxhOfscxPfIfm/giphy.gif",
-        "https://media.giphy.com/media/3o6ZtaO9BZHcOjmErm/giphy.gif",
-        "https://media.giphy.com/media/l2Je66zG6mAAZxgqI/giphy.gif",
-        "https://media.giphy.com/media/xT5LMQ8WXnUocfAtpe/giphy.gif",
-        "https://media.giphy.com/media/3o6ZtpvPW6fqxkE11C/giphy.gif",
-        "https://media.giphy.com/media/xT5LMpX8gWssyqkbEA/giphy.gif",
-        "https://media.giphy.com/media/l2JhpjWPccQhsAMfu/giphy.gif"
+        "https://images-ext-1.discordapp.net/external/W0HpZimDJ0l-tY2lClrLVP_CM1aYOWst0YoCzE10iU4/https/media.tenor.com/q8o8tyY9_HsAAAPo/watching-you.mp4",
+        "https://tenor.com/view/james-doakes-doakes-curious-suspicious-questioning-gif-14390669560130901665",
+        "https://tenor.com/view/doakes-bar-gif-4298875606784040546",
+        "https://tenor.com/view/dexter-doakes-squint-stare-suspicious-gif-14432154109786838518",
+        "https://tenor.com/view/doakes-dexter-dexter-doakes-gotcha-found-you-gif-14688017774431904057",
+        "https://tenor.com/view/dexter-james-doakes-erik-king-stare-staring-gif-1343162792415382650",
     ]
     
     # Doakes quotes
     doakes_quotes = [
-        "Surprise, motherfucker!",
-        "Some fries, motherfucker!",
-        "All rise, motherfucker!",
-        "Wrong size, motherfucker!",
-        "First prize, motherfucker!",
-        "Disguise, motherfucker!",
-        "Supplies, motherfucker!",
-        "Sunrise, motherfucker!"
+        "I will touch you.",
+        "ughhhh 😳",
+        "I like men :3"
     ]
     
     # Select random GIF and quote
