@@ -88,20 +88,96 @@ async def say(ctx, *, message):
 
 @bot.command(name='userinfo')
 async def user_info(ctx, member: discord.Member = None):
-    """Get information about a user"""
+    """Get detailed information about a user"""
     if member is None:
         member = ctx.author
     
+    # Create embed with user's color or default blue
     embed = discord.Embed(
-        title=f"User Info - {member.display_name}",
-        color=member.color
+        title=f"📋 User Information",
+        description=f"Information for {member.mention}",
+        color=member.color if member.color != discord.Color.default() else discord.Color.blue()
     )
-    embed.add_field(name="Username", value=f"{member.name}#{member.discriminator}", inline=True)
-    embed.add_field(name="ID", value=member.id, inline=True)
-    embed.add_field(name="Status", value=str(member.status).title(), inline=True)
-    embed.add_field(name="Joined Server", value=member.joined_at.strftime("%Y-%m-%d"), inline=True)
-    embed.add_field(name="Account Created", value=member.created_at.strftime("%Y-%m-%d"), inline=True)
-    embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
+    
+    # Basic user info
+    embed.add_field(
+        name="👤 Username", 
+        value=f"{member.name}#{member.discriminator}", 
+        inline=False
+    )
+    
+    embed.add_field(
+        name="🆔 User ID", 
+        value=f"`{member.id}`", 
+        inline=False
+    )
+    
+    embed.add_field(
+        name="📛 Display Name", 
+        value=member.display_name, 
+        inline=False
+    )
+    
+    embed.add_field(
+        name="🟢 Status", 
+        value=str(member.status).title().replace('Dnd', 'Do Not Disturb'), 
+        inline=False
+    )
+    
+    # Dates with Discord timestamps
+    if member.joined_at:
+        joined_timestamp = int(member.joined_at.timestamp())
+        embed.add_field(
+            name="📅 Joined Server", 
+            value=f"<t:{joined_timestamp}:F>\n<t:{joined_timestamp}:R>", 
+            inline=False
+        )
+    
+    created_timestamp = int(member.created_at.timestamp())
+    embed.add_field(
+        name="🎂 Account Created", 
+        value=f"<t:{created_timestamp}:F>\n<t:{created_timestamp}:R>", 
+        inline=False
+    )
+    
+    # User roles (excluding @everyone)
+    roles = [role for role in member.roles if role.name != "@everyone"]
+    if roles:
+        # Sort roles by position (highest first)
+        roles.sort(key=lambda x: x.position, reverse=True)
+        
+        # Create role list with mentions
+        role_list = [role.mention for role in roles]
+        
+        # Split roles into chunks if too many (Discord has embed limits)
+        if len(role_list) > 20:
+            role_text = ", ".join(role_list[:20]) + f"\n... and {len(role_list) - 20} more"
+        else:
+            role_text = ", ".join(role_list)
+        
+        embed.add_field(
+            name=f"🎭 Roles ({len(roles)})", 
+            value=role_text if role_text else "No roles", 
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="🎭 Roles (0)", 
+            value="No roles", 
+            inline=False
+        )
+    
+    # Set thumbnail to user's avatar
+    if member.avatar:
+        embed.set_thumbnail(url=member.avatar.url)
+    else:
+        embed.set_thumbnail(url=member.default_avatar.url)
+    
+    # Footer with additional info
+    embed.set_footer(
+        text=f"Requested by {ctx.author.display_name}",
+        icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
+    )
     
     await ctx.send(embed=embed)
 

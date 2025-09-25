@@ -16,7 +16,7 @@ A basic Discord bot written in Python using the discord.py library.
 - `!ping` - Check bot latency
 - `!info` - Display bot information
 - `!say <message>` - Make the bot repeat a message
-- `!userinfo [@user]` - Get information about a user (defaults to command author)
+- `!userinfo [@user]` - Get detailed information about a user including roles and timestamps (defaults to command author)
 - `!help` - Show all available commands (built-in)
 
 ## Setup Instructions
