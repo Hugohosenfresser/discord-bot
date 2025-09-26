@@ -22,7 +22,10 @@ load_dotenv()
 # Bot configuration
 TOKEN = os.getenv('DISCORD_TOKEN')
 PREFIX = os.getenv('COMMAND_PREFIX', '!')
-BACK_ACCESS_USER_ID = int(os.getenv('BACK_ACCESS_USER_ID', '0')) if os.getenv('BACK_ACCESS_USER_ID') else None
+try:
+    BACK_ACCESS_USER_ID = int(os.getenv("BACK_ACCESS_USER_ID", "0"))
+except ValueError:
+    BACK_ACCESS_USER_ID = 0
 
 # Set up bot intents (permissions)
 intents = discord.Intents.default()
