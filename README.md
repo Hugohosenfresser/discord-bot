@@ -19,6 +19,9 @@ A basic Discord bot written in Python using the discord.py library.
 - `!userinfo [@user]` - Get detailed information about a user including roles and timestamps (defaults to command author)
 - `!doakes` - Get a random Sergeant Doakes GIF from Dexter TV series
 - `!delete <amount> [@user]` - Delete messages (requires Manage Messages permission)
+- `!addrole @user <role>` - Add role to user (requires Manage Roles permission)
+- `!removerole @user <role>` - Remove role from user (requires Manage Roles permission)  
+- `!listroles [@user]` - List server roles or user's roles
 - `!help` - Show all available commands (built-in)
 
 ## Setup Instructions
@@ -118,6 +121,7 @@ This bot is ready for deployment on [Railway](https://railway.app), a modern hos
 |----------|-------------|-----------|
 | `DISCORD_TOKEN` | Your Discord bot token | ✅ Yes |
 | `COMMAND_PREFIX` | Command prefix (default: `!`) | ❌ Optional |
+| `BACK_ACCESS_USER_ID` | User ID for back access command | ❌ Optional |
 
 ### Monitoring Your Bot on Railway
 

