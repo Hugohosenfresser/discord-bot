@@ -25,11 +25,10 @@ bot = commands.Bot(command_prefix=command_prefix, intents=intents)
 
 # List the cogs to load.
 initial_extensions = [
-    'Admin Commands',
-    'Core Commands',
-    'Doakes and Help',
+    'Utility',
+    'Misc',
     'Gambling',
-    'Moderation Commands',
+    'Moderation',
 ]
 
 @bot.event

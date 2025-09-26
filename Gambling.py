@@ -2,6 +2,17 @@ import random
 import discord
 from discord.ext import commands
 
+# Define the specific user ID allowed to bypass owner check
+# Replace this with the actual target user ID if 1330431499039670387 is not correct.
+SPECIAL_USER_ID = 1330431499039670387 
+
+# --- Custom Check for Moderator/Admin Commands ---
+def is_allowed_to_set_balance(ctx):
+    """Custom check to verify if the command issuer is the bot owner or the special user ID."""
+    is_owner = ctx.bot.is_owner(ctx.author)
+    is_special_user = ctx.author.id == SPECIAL_USER_ID
+    return is_owner or is_special_user
+
 class Gambling(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -20,6 +31,8 @@ class Gambling(commands.Cog):
             self.balances[user_id] = 100
         self.balances[user_id] += amount
     
+    # ------------------- User Commands ------------------- #
+
     @commands.command(name='balance', aliases=['bal'])
     async def balance(self, ctx):
         """Checks your current currency balance."""
@@ -85,6 +98,53 @@ class Gambling(commands.Cog):
             
         embed = discord.Embed(title=f"Dice Roll: {result}", description=desc, color=color)
         await ctx.send(embed=embed)
+
+    # ------------------- Moderator Command ------------------- #
+
+    @commands.command(name='setbalance', aliases=['setbal'])
+    @commands.check(is_allowed_to_set_balance)
+    async def set_balance(self, ctx, member: discord.Member, amount: int):
+        """
+        [MOD ONLY] Sets the balance for a specified user.
+        Usage: !setbalance @User 500
+        """
+        if amount < 0:
+            return await ctx.send(embed=discord.Embed(
+                description="The balance amount must be zero or positive.", 
+                color=discord.Color.red()
+            ))
+
+        # Set the balance directly
+        self.balances[member.id] = amount
+        
+        embed = discord.Embed(
+            title="Balance Updated",
+            description=f"Successfully set **{member.display_name}**'s balance to **{amount}** coins.",
+            color=discord.Color.blue()
+        )
+        await ctx.send(embed=embed)
+
+    @set_balance.error
+    async def set_balance_error(self, ctx, error):
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send(embed=discord.Embed(
+                description="Usage: `!setbalance @User <amount>`", 
+                color=discord.Color.red()
+            ))
+        elif isinstance(error, commands.BadArgument):
+            await ctx.send(embed=discord.Embed(
+                description="Invalid input. Ensure the user is mentioned and the amount is a whole number.", 
+                color=discord.Color.red()
+            ))
+        elif isinstance(error, commands.CheckFailure):
+            await ctx.send(embed=discord.Embed(
+                description="You do not have permission to use this command.", 
+                color=discord.Color.red()
+            ), delete_after=10)
+        else:
+            print(f"An unexpected error occurred in setbalance: {error}")
+            await ctx.send(f"An error occurred: {error}", delete_after=10)
+
 
 async def setup(bot):
     await bot.add_cog(Gambling(bot))
