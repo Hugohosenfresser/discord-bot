@@ -23,12 +23,15 @@ intents.guilds = True
 # Create the bot instance
 bot = commands.Bot(command_prefix=command_prefix, intents=intents)
 
-# List the cogs to load.
+# List the cogs to load, using the actual file names (without the .py extension).
+# Based on the project structure image, these are the correct module names:
 initial_extensions = [
-    'Utility',
-    'Misc',
+    'Core Commands',
+    'Doakes and Help',
     'Gambling',
-    'Moderation',
+    'Moderation Commands',
+    # Ensure 'Admin Commands' is loaded if you created it for the setbalance command
+    'Admin Commands' 
 ]
 
 @bot.event
@@ -40,7 +43,8 @@ async def on_ready():
     # Load the cogs when the bot is ready
     for extension in initial_extensions:
         try:
-            await bot.load_extension(extension.replace(" ", ""))
+            # We use the extension name directly, spaces and all, as it matches the filename
+            await bot.load_extension(extension)
             print(f'Successfully loaded extension: {extension}')
         except Exception as e:
             print(f'Failed to load extension {extension}.')
