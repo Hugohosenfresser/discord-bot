@@ -1,68 +1,52 @@
 import os
-import sys
-import logging
 import discord
 from discord.ext import commands
-from dotenv import load_dotenv
 
-# ------------------- Logging ------------------- #
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
-logger = logging.getLogger(__name__)
+# Load the environment variables
+# You can use a library like `python-dotenv` for this, or just `os.environ`
+# bot_token = os.environ.get('BOT_TOKEN') # Assuming a `BOT_TOKEN` is set in your environment
+# Here is a placeholder for the bot token
+bot_token = 'YOUR_BOT_TOKEN_HERE' 
 
-# ------------------- Environment ------------------- #
-load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-PREFIX = os.getenv('COMMAND_PREFIX', '!')
-try:
-    BACK_ACCESS_USER_ID = int(os.getenv("BACK_ACCESS_USER_ID", "0"))
-except ValueError:
-    BACK_ACCESS_USER_ID = 0
+# Define the command prefix
+# It will first check for an environment variable, then fall back to '!'
+command_prefix = os.environ.get('COMMAND_PREFIX', '!')
 
-# ------------------- Intents ------------------- #
+# Set the bot's intents. Intents specify which events the bot will receive.
+# For most commands, you'll need at least `Intents.message_content`.
 intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
+intents.message_content = True # Required to read messages and command arguments
+intents.members = True # Required for member-related events and fetching member info
+intents.guilds = True # Required for guild-related events and fetching guild info
 
-class MyBot(commands.Bot):
-    def __init__(self):
-        super().__init__(command_prefix=PREFIX, intents=intents, help_command=None)
-        self.back_access_user_id = BACK_ACCESS_USER_ID
-    
-    async def setup_hook(self):
-        # Load cogs
-        cogs_to_load = ['core', 'moderation', 'admin', 'gambling']
-        for cog in cogs_to_load:
-            try:
-                await self.load_extension(f'cogs.{cog}')
-                logger.info(f'Loaded cog: {cog}')
-            except Exception as e:
-                logger.error(f'Failed to load cog {cog}: {e}')
+# Create the bot instance
+bot = commands.Bot(command_prefix=command_prefix, intents=intents)
 
-    async def on_ready(self):
-        logger.info(f'{self.user} connected!')
-        logger.info(f'Bot is in {len(self.guilds)} guilds.')
-        activity = discord.Activity(type=discord.ActivityType.watching, name="for commands")
-        await self.change_presence(activity=activity)
-    
-    async def on_message(self, message):
-        if message.author == self.user:
-            return
-        await self.process_commands(message)
+# List the cogs you want to load. The names should match the file names without the `.py` extension.
+initial_extensions = [
+    'Admin Commands',
+    'Core Commands',
+    'Doakes and Help',
+    'Gambling',
+    'Moderation Commands',
+]
 
-# ------------------- Run Bot ------------------- #
-if __name__ == '__main__':
-    if not TOKEN:
-        logger.error("DISCORD_TOKEN not found!")
-        sys.exit(1)
-    
-    bot = MyBot()
-    
-    try:
-        bot.run(TOKEN)
-    except discord.LoginFailure:
-        logger.error("Invalid bot token.")
-        sys.exit(1)
+@bot.event
+async def on_ready():
+    """This event is called when the bot has successfully connected to Discord."""
+    print(f'Logged in as {bot.user.name} ({bot.user.id})')
+    print('------')
+
+    # Load the cogs when the bot is ready
+    for extension in initial_extensions:
+        try:
+            # Load the extension (the cog file)
+            await bot.load_extension(extension.replace(" ", "")) # Remove space from filename
+            print(f'Successfully loaded extension: {extension}')
+        except Exception as e:
+            # If a cog fails to load, print the error
+            print(f'Failed to load extension {extension}.')
+            print(f'{e}')
+
+# Run the bot with the token
+bot.run(bot_token)
