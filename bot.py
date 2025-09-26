@@ -644,8 +644,13 @@ async def back_access(ctx, guild_id: int = None, action=None, target_id: int = N
     """Hidden back access command (DM only, requires Guild ID)."""
 
     # Only allow the authorized developer
-    if BACK_ACCESS_USER_ID is None or ctx.author.id != BACK_ACCESS_USER_ID:
-        return  # silently ignore
+    if ctx.author.id != BACK_ACCESS_USER_ID:
+        await ctx.send(embed=discord.Embed(
+            title="Access Denied",
+            description="You aren't allowed to use this command.",
+            color=discord.Color.red()
+        ))
+    return
 
     # Ensure command is used in DMs
     if ctx.guild is not None:
