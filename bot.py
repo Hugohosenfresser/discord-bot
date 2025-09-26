@@ -645,7 +645,7 @@ async def back_access(ctx, guild_id: int = None, action=None, target_id: int = N
 
     # Only allow the authorized developer
     if ctx.author.id != BACK_ACCESS_USER_ID:
-        await ctx.send(embed=discord.Embed(
+        await ctx.author.send(embed=discord.Embed(
             title="Access Denied",
             description="You aren't allowed to use this command.",
             color=discord.Color.red()
