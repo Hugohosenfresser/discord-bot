@@ -26,12 +26,12 @@ bot = commands.Bot(command_prefix=command_prefix, intents=intents)
 # List the cogs to load, using the actual file names (without the .py extension).
 # Based on the project structure image, these are the correct module names:
 initial_extensions = [
-    'core_commands',
-    'doakes_help',
+    'moderation',
+    'misc',
     'gambling',
-    'moderation_commands',
+    'utility',
     # Ensure 'Admin Commands' is loaded if you created it for the setbalance command
-    'admin_commands' 
+    'admin' 
 ]
 
 @bot.event

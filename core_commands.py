@@ -21,7 +21,6 @@ class Utility(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(name='say')
-    @commands.has_permissions(manage_messages=True)
     async def say(self, ctx, *, message):
         """Makes the bot repeat a message. Requires Manage Messages permission."""
         try:
